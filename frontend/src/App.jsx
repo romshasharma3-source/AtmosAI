@@ -519,7 +519,7 @@ function FeatureCard({ icon, title, description }) {
         {icon}
       </div>
 
-      <h3 className="mt-5 text-sm font-bold text-slate-800">
+      <h3 className="mt-6 text-sm font-bold text-slate-800">
         {title}
       </h3>
 
