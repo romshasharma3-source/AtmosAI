@@ -19,7 +19,7 @@ function App() {
     setWeather(null);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/weather", {
+      const response = await fetch("https://atmosai-ew2l.onrender.com/weather", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
