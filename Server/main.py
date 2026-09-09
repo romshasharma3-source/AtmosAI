@@ -11,25 +11,38 @@ from api import ask_weather
 # CONFIGURATION
 # ============================================================
 
-APP_ENV = os.getenv("APP_ENV", "development")
+APP_ENV = os.getenv("APP_ENV", "production")
 
-# Comma-separated frontend URLs.
-# Example:
-# CORS_ORIGINS=https://your-frontend.onrender.com
-cors_origins = [
-    origin.strip()
+# Exact production Vercel frontend
+PRODUCTION_FRONTEND = "https://atmos-ai-woad.vercel.app"
+
+# Local development URLs
+LOCAL_FRONTENDS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+# Additional origins from Render environment variable
+ENV_ORIGINS = [
+    origin.strip().rstrip("/")
     for origin in os.getenv("CORS_ORIGINS", "").split(",")
     if origin.strip()
 ]
 
-# Allow local development when running locally.
-if APP_ENV == "development":
-    cors_origins.extend(
+# Combine all allowed origins
+ALLOWED_ORIGINS = list(
+    dict.fromkeys(
         [
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
+            PRODUCTION_FRONTEND,
+            *ENV_ORIGINS,
+            *(
+                LOCAL_FRONTENDS
+                if APP_ENV == "development"
+                else []
+            ),
         ]
     )
+)
 
 
 # ============================================================
@@ -38,7 +51,10 @@ if APP_ENV == "development":
 
 app = FastAPI(
     title="AtmosAI Weather API",
-    description="Real-time weather information powered by Gemini and OpenWeatherMap.",
+    description=(
+        "Real-time weather information powered by "
+        "Gemini and OpenWeatherMap."
+    ),
     version="1.0.0",
 )
 
@@ -49,10 +65,21 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list(set(cors_origins)),
-    allow_credentials=True,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+
+    # Explicit production + local origins
+    allow_origins=ALLOWED_ORIGINS,
+
+    # Also allow Vercel preview deployments
+    allow_origin_regex=r"https://.*\.vercel\.app",
+
+    # No cookies/authentication are being used by this API
+    allow_credentials=False,
+
+    # Allow normal API methods and browser preflight
+    allow_methods=["GET", "POST", "OPTIONS"],
+
+    # Allow JSON and browser headers
+    allow_headers=["*"],
 )
 
 
@@ -109,6 +136,7 @@ def health_check():
 
 @app.post("/weather")
 def weather(request: WeatherRequest):
+
     city = request.city.strip()
 
     if not city:
@@ -119,6 +147,7 @@ def weather(request: WeatherRequest):
 
     try:
         question = f"What is the current weather in {city}?"
+
         answer = ask_weather(question)
 
         return {
@@ -127,7 +156,9 @@ def weather(request: WeatherRequest):
             "answer": answer,
         }
 
-    except Exception:
+    except Exception as e:
+        print(f"Weather error: {e}")
+
         raise HTTPException(
             status_code=502,
             detail="Unable to retrieve weather information right now.",
@@ -140,6 +171,7 @@ def weather(request: WeatherRequest):
 
 @app.post("/ask")
 def ask_question(request: WeatherQuestion):
+
     question = request.question.strip()
 
     if not question:
@@ -157,7 +189,9 @@ def ask_question(request: WeatherQuestion):
             "answer": answer,
         }
 
-    except Exception:
+    except Exception as e:
+        print(f"AI weather error: {e}")
+
         raise HTTPException(
             status_code=502,
             detail="Unable to process the weather request right now.",
