@@ -1,8 +1,35 @@
+import os
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api import ask_weather
+
+
+# ============================================================
+# CONFIGURATION
+# ============================================================
+
+APP_ENV = os.getenv("APP_ENV", "development")
+
+# Comma-separated frontend URLs.
+# Example:
+# CORS_ORIGINS=https://your-frontend.onrender.com
+cors_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
+# Allow local development when running locally.
+if APP_ENV == "development":
+    cors_origins.extend(
+        [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ]
+    )
 
 
 # ============================================================
@@ -10,15 +37,9 @@ from api import ask_weather
 # ============================================================
 
 app = FastAPI(
-
-    title="Weather AI Assistant API",
-
-    description=(
-        "Real-time Weather API powered by "
-        "Gemini and OpenWeatherMap"
-    ),
-
-    version="1.0.0"
+    title="AtmosAI Weather API",
+    description="Real-time weather information powered by Gemini and OpenWeatherMap.",
+    version="1.0.0",
 )
 
 
@@ -27,42 +48,46 @@ app = FastAPI(
 # ============================================================
 
 app.add_middleware(
-
     CORSMiddleware,
-
-    allow_origins=["*"],
-
+    allow_origins=list(set(cors_origins)),
     allow_credentials=True,
-
-    allow_methods=["*"],
-
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 
 # ============================================================
-# REQUEST MODEL
+# REQUEST MODELS
 # ============================================================
 
 class WeatherRequest(BaseModel):
+    city: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="City name, e.g. Bhopal or London",
+    )
 
-    city: str
+
+class WeatherQuestion(BaseModel):
+    question: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Natural-language weather question",
+    )
 
 
 # ============================================================
-# ROOT ENDPOINT
+# ROOT
 # ============================================================
 
 @app.get("/")
 def home():
-
     return {
-
-        "message": "Weather AI Assistant API is running",
-
-        "status": "success",
-
-        "version": "1.0.0"
+        "name": "AtmosAI Weather API",
+        "status": "running",
+        "version": "1.0.0",
     }
 
 
@@ -72,12 +97,9 @@ def home():
 
 @app.get("/health")
 def health_check():
-
     return {
-
         "status": "healthy",
-
-        "service": "Weather AI Assistant"
+        "service": "AtmosAI Weather API",
     }
 
 
@@ -87,116 +109,56 @@ def health_check():
 
 @app.post("/weather")
 def weather(request: WeatherRequest):
-
     city = request.city.strip()
 
     if not city:
-
         raise HTTPException(
-
             status_code=400,
-
-            detail="City name cannot be empty."
+            detail="City name cannot be empty.",
         )
-
 
     try:
-
-        # --------------------------------------------
-        # Send the question to Gemini
-        # --------------------------------------------
-
-        question = (
-            f"What is the current weather in {city}?"
-        )
-
+        question = f"What is the current weather in {city}?"
         answer = ask_weather(question)
 
-
-        # --------------------------------------------
-        # Return API response
-        # --------------------------------------------
-
         return {
-
             "status": "success",
-
             "city": city,
-
-            "answer": answer
+            "answer": answer,
         }
 
-
-    except Exception as e:
-
+    except Exception:
         raise HTTPException(
-
-            status_code=500,
-
-            detail=str(e)
+            status_code=502,
+            detail="Unable to retrieve weather information right now.",
         )
 
 
 # ============================================================
-# WEATHER QUESTION ENDPOINT
+# AI WEATHER QUESTION ENDPOINT
 # ============================================================
-
-class WeatherQuestion(BaseModel):
-
-    question: str
-
 
 @app.post("/ask")
 def ask_question(request: WeatherQuestion):
-
     question = request.question.strip()
 
     if not question:
-
         raise HTTPException(
-
             status_code=400,
-
-            detail="Question cannot be empty."
+            detail="Question cannot be empty.",
         )
 
-
     try:
-
         answer = ask_weather(question)
 
         return {
-
             "status": "success",
-
             "question": question,
-
-            "answer": answer
+            "answer": answer,
         }
 
-
-    except Exception as e:
-
+    except Exception:
         raise HTTPException(
-
-            status_code=500,
-
-            detail=str(e)
+            status_code=502,
+            detail="Unable to process the weather request right now.",
         )
-
-
-# ============================================================
-# SERVER START MESSAGE
-# ============================================================
-
-@app.on_event("startup")
-def startup_event():
-
-    print()
-    print("==============================================")
-    print("🌤️  WEATHER AI ASSISTANT API")
-    print("==============================================")
-    print("🚀 FastAPI server starting...")
-    print("🤖 Gemini: gemini-3.1-flash-lite")
-    print("🌍 Weather: OpenWeatherMap")
-    print("==============================================")
