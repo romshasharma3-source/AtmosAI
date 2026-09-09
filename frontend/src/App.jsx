@@ -95,7 +95,7 @@ function App() {
 
             <div>
               <h1 className="text-sm font-bold tracking-tight text-slate-900 sm:text-base">
-                WeatherAI
+                AtmosAI
               </h1>
 
               <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-slate-400">
@@ -470,7 +470,7 @@ function App() {
         <footer className="px-2 py-10 text-center">
 
           <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-slate-300">
-            WeatherAI
+            AtmosAI
           </p>
 
           <p className="mt-2 text-xs text-slate-400">
